@@ -1,7 +1,7 @@
 - 👋 Hi, I’m @maupzilla
-- 👀 I’m interested in 3d printed weapons
+- 👀 I’m interested in 3d printers
 - 🌱 I’m currently learning designing for a 3d printer
-- 💞️ I’m looking to collaborate on  3d weapon design 
+- 💞️ I’m looking to collaborate on  3 printers
 - 📫 How to reach me look around 
 
 <!---
