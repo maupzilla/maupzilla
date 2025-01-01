@@ -1,0 +1,686 @@
+ ## Voron Design VORON2 350mm Spider 4x TMC2209 UART & 2x TMC5160 SPI config
+
+## *** THINGS TO CHANGE/CHECK: ***
+## MCU paths                           [mcu] section
+## Thermistor types                    [extruder] and [heater_bed] sections - See https://www.klipper3d.org/Config_Reference.html#common-thermistors for common thermistor types
+## Bed sensor_pin                      [heater_bed] section
+## Fan pins                            [heater_fan hotend_fan] amd [fan] sections
+## Z Endstop Switch location           [safe_z_home] section
+## Homing end position                 [gcode_macro G32] section
+## Z Endstop Switch  offset for Z0     [stepper_z] section
+## Probe points                        [quad_gantry_level] section
+## Min & Max gantry corner postions    [quad_gantry_level] section
+## PID tune                            [extruder] and [heater_bed] sections
+## Fine tune E steps                   [extruder] section
+##[include moonraker_obico_macros.cfg]
+[exclude_object]
+[include KAMP_Settings.cfg]
+[include mainsail.cfg]
+[include ebb.cfg]
+[include stealthburner_leds.cfg]
+[include nozzle_scrub.cfg]
+[include timelapse.cfg]
+[include bed_mesh.cfg] 
+#[include neopixel_caselight.cfg]
+[include led_effects.cfg]
+[include calibrate_pa.cfg]
+[include config_backup.cfg]
+[include nevermore.cfg]
+#[include led_progress.cfg]
+[include neopixel_rainbowstick.cfg]
+##[include stealthburner_leds.cfg]
+
+
+[mcu]
+##  Obtain definition by "ls -l /dev/serial/by-id/" 
+##--------------------------------------------------------------------
+serial:/dev/ttyACM0
+#serial: /dev/serial/by-id/usb-klipper_stm32f446xx_5C0039000251323438323636-if00
+# [mcu EBBCan]
+
+# canbus_uuid: 0cff46e9f655
+
+## Uncomment below if you're using the Raspberry uart0 to communicate with Spider
+#restart_method: command
+
+[virtual_sdcard]
+path: /home/pi/printer_data/gcodes
+on_error_gcode: CANCEL_PRINT
+
+[printer]
+kinematics: corexy
+max_velocity: 500  
+max_accel: 4000                 #Max 4000
+max_z_velocity: 15          #Max 15 for 12V TMC Drivers, can increase for 24V
+max_z_accel: 350
+square_corner_velocity: 5.0
+
+#####################################################################
+#      X/Y Stepper Settings
+#####################################################################
+
+##  Connected to X-MOT (B Motor)
+[stepper_x]
+step_pin: PE11
+dir_pin: PE10
+enable_pin:!PE9
+rotation_distance: 40
+microsteps: 32
+full_steps_per_rotation:200  #set to 400 for 0.9 degree stepper
+#endstop_pin: ^PB14
+endstop_pin: tmc5160_stepper_x:virtual_endstop
+position_min: 0
+position_endstop: 350
+position_max: 350
+
+##--------------------------------------------------------------------
+homing_speed: 50  #Max 100
+homing_retract_dist: 0
+homing_positive_dir: true
+##  Make sure to update below for your relevant driver (5160)
+[tmc5160 stepper_x] 
+cs_pin: PE7
+# Soft SPI
+spi_software_mosi_pin: PE14
+spi_software_miso_pin: PE13
+spi_software_sclk_pin: PE12
+interpolate: True
+diag0_pin: ^!PB14 
+run_current: 0.8 
+sense_resistor:  0.075  #0.075
+driver_SGT: 1 # -64 is most sensitive value, 63 is least sensitive
+#hold_current: 0.5
+#stealthchop_threshold: 999999
+#diag1_pin: PB14 # Pin connected to TMC DIAG1 pin (or use diag0_pin / DIAG0 pin)^!PB14
+
+
+##  Connected to Y-MOT (A Motor)
+[stepper_y]
+step_pin: PD8
+dir_pin: PB12
+enable_pin: !PD9
+rotation_distance: 40
+microsteps: 32
+full_steps_per_rotation:200  #set to 400 for 0.9 degree stepper
+endstop_pin: tmc5160_stepper_y:virtual_endstop
+#endstop_pin: ^PB13
+position_min: 0
+position_endstop: 350
+position_max: 350
+
+##--------------------------------------------------------------------
+homing_speed: 50  #Max 100
+homing_retract_dist: 0
+homing_positive_dir: true
+
+##  Make sure to update below for your relevant driver (5160)
+[tmc5160 stepper_y] 
+cs_pin: PE15
+# Soft SPI
+spi_software_mosi_pin: PE14
+spi_software_miso_pin: PE13
+spi_software_sclk_pin: PE12
+diag0_pin: ^!PB13 
+interpolate: True 
+run_current: 0.8
+sense_resistor:  0.075  #0.075
+driver_SGT: 1 # -64 is most sensitive value, 63 is least sensitive
+#hold_current: 0.5
+#stealthchop_threshold: 0
+
+#####################################################################
+#   Z Stepper Settings
+#####################################################################
+
+## In Z-MOT Position
+## Z0 Stepper - Front Left
+[stepper_z]
+step_pin: PD14
+dir_pin: PD13
+enable_pin: !PD15
+rotation_distance: 40
+gear_ratio: 80:16
+microsteps: 32
+##  In Z- Position
+#endstop_pin: ^EBBCan: PB5
+endstop_pin: probe:z_virtual_endstop
+position_max: 330
+position_min: -5
+homing_speed: 8
+second_homing_speed: 3
+homing_retract_dist: 3
+
+##  Make sure to update below for your relevant driver (2208 or 2209)
+[tmc2209 stepper_z]
+uart_pin: PD10
+interpolate: True
+run_current: 0.7
+hold_current: 0.4
+sense_resistor: 0.110
+stealthchop_threshold: 0
+
+##  In E1-MOT Position
+##  Z1 Stepper - Rear Left
+[stepper_z1]
+step_pin: PE6
+dir_pin: !PC13
+enable_pin: !PE5
+rotation_distance: 40
+gear_ratio: 80:16
+microsteps: 32
+
+##	Make sure to update below for your relevant driver (2208 or 2209)
+[tmc2209 stepper_z1]
+uart_pin: PC14
+interpolate: True
+run_current: 0.7
+hold_current: 0.4
+sense_resistor: 0.110
+stealthchop_threshold: 0
+
+##  In E2-MOT Position
+##  Z2 Stepper - Rear Right
+[stepper_z2]
+step_pin: PE2
+dir_pin: PE4
+enable_pin: !PE3
+rotation_distance: 40
+gear_ratio: 80:16
+microsteps: 32
+
+##  Make sure to update below for your relevant driver (2208 or 2209)
+[tmc2209 stepper_z2]
+uart_pin: PC15
+interpolate: True
+run_current: 0.7
+hold_current: 0.4
+sense_resistor: 0.110
+stealthchop_threshold: 0
+
+##  In E3-MOT Position
+##  Z3 Stepper - Front Right
+[stepper_z3]
+step_pin: PD12
+dir_pin: !PC4
+enable_pin: !PE8
+rotation_distance: 40
+gear_ratio: 80:16
+microsteps: 32
+
+##  Make sure to update below for your relevant driver (2208 or 2209)
+[tmc2209 stepper_z3]
+uart_pin: PA15
+interpolate: True
+run_current: 0.7
+hold_current: 0.4
+sense_resistor: 0.110
+stealthchop_threshold: 0
+
+
+
+#####################################################################
+#   Bed Heater
+#####################################################################
+##  SSR Pin - In BED OUT position
+[heater_bed]
+heater_pin: PB4
+## Check what thermistor type you have. See https://www.klipper3d.org/Config_Reference.html#common-thermistors for common thermistor types.
+## Use "Generic 3950" for Keenovo heaters
+sensor_type:Generic 3950
+
+##--------------------------------------------------------------------
+##  Select the option that matches your board
+#sensor_pin: PC3 # Spider 1.0 & 1.1
+sensor_pin: PB0 # Spider 2.2
+##--------------------------------------------------------------------
+
+##  Adjust Max Power so your heater doesn't warp your bed
+max_power: 0.75
+min_temp: 0
+max_temp: 125
+#control: pid
+#pid_kp: 58.437
+#pid_ki: 2.347
+#pid_kd: 363.769
+
+#######################################
+#### Enclosure Temp Sensor Section ####
+#######################################
+[temperature_sensor chamber]
+sensor_type: Generic 3950
+sensor_pin: EBBCan: PA3
+min_temp: 10
+max_temp: 100
+gcode_id: C
+
+
+
+########################################
+### Raspberry Pi Temp ##################
+########################################
+[temperature_sensor raspberry_pi]
+sensor_type: temperature_host
+min_temp: 0
+max_temp: 100
+
+########################################
+### Spider MCU temp ####################
+########################################
+[temperature_sensor mcu_temp]
+sensor_type: temperature_mcu
+min_temp: 0
+max_temp: 100
+
+
+
+#####################################################################
+#   Probe
+#####################################################################
+
+##  This probe is not used for Z height, only Quad Gantry Leveling
+##  In Z+ position
+[probe]
+##  If your probe is NO instead of NC, change pin to ^!PA3
+pin:  ^EBBCan: PB5
+x_offset: 0
+y_offset: 0
+#z_offset: 0
+speed: 10
+samples: 5
+samples_result: median
+sample_retract_dist: 3.0
+samples_tolerance: 0.01 # 0.006 
+samples_tolerance_retries: 5
+activate_gcode:
+   #G28                   # Full home (XYZ)
+    {% set PROBE_TEMP = 100 %}
+    {% set MAX_TEMP = PROBE_TEMP + 10 %}
+    {% set ACTUAL_TEMP = printer.extruder.temperature %}
+    {% set TARGET_TEMP = printer.extruder.target %}
+
+    {% if TARGET_TEMP > PROBE_TEMP %}
+        { action_respond_info('Extruder temperature target of %.1fC is too high, lowering to %.1fC' % (TARGET_TEMP, PROBE_TEMP)) }
+        M109 S{ PROBE_TEMP }
+    {% else %}
+        # Temperature target is already low enough, but nozzle may still be too hot.
+        {% if ACTUAL_TEMP > MAX_TEMP %}
+            { action_respond_info('Extruder temperature %.1fC is still too high, waiting until below %.1fC' % (ACTUAL_TEMP, MAX_TEMP)) }
+            TEMPERATURE_WAIT SENSOR=extruder MAXIMUM={ MAX_TEMP }
+        {% endif %}
+    {% endif %}
+
+ #####################################################################
+#   Fans
+ #####################################################################   
+
+
+##  Controller fan - FAN2 Connector
+[heater_fan controller_fan]
+pin: PB2
+#kick_start_time: 0.5
+heater: heater_bed
+heater_temp:50
+fan_speed: 0.5
+
+# ##  Exhaust fan - In E2 OUT Positon
+# [heater_fan exhaust_fan]
+# pin: PB3
+# max_power: 1.0
+# #shutdown_speed: 0.0
+# ##kick_start_time: 0.5
+# heater: heater_bed
+# heater_temp: 60
+# fan_speed: 0.5
+
+# [duplicate_pin_override]
+# pins: PC1
+
+[temperature_fan chamber_fan]
+pin: PB3
+max_power: 0.7
+shutdown_speed: 0.0
+kick_start_time: 5.0
+cycle_time:0.01
+off_below:0.1
+sensor_type: Generic 3950
+sensor_pin: PC1 #PC0
+min_temp: 0
+max_temp: 80
+target_temp: 60.0
+control: watermark
+gcode_id: D
+ 
+#####################################################################
+#   Homing and Gantry Adjustment Routines
+#####################################################################
+
+[idle_timeout]
+timeout: 72000
+
+[safe_z_home]
+home_xy_position:175,175
+speed:200
+z_hop:15
+
+
+[quad_gantry_level]
+gantry_corners:
+   -60,-10
+   410,420
+##  Probe points
+points:
+   50,25
+   50,275
+   300,275
+   300,25
+speed:350
+horizontal_move_z: 5
+retries: 7
+retry_tolerance: 0.01 #0.0075
+max_adjust: 10
+
+#####################################################################
+#   Displays
+#####################################################################
+
+#--------------------------------------------------------------------
+
+#   mini12864 LCD Display
+[display]
+lcd_type: uc1701
+cs_pin: PC11
+a0_pin: PD2
+rst_pin: PC10
+encoder_pins: ^PC6,^PC7
+click_pin: ^!PA8
+contrast: 63
+#spi_bus: spi1
+spi_software_mosi_pin: PA7
+spi_software_miso_pin: PA6
+spi_software_sclk_pin: PA5
+
+#   To control Neopixel RGB in mini12864 display
+[neopixel fysetc_mini12864]
+pin: PC12
+chain_count: 3
+initial_RED: 0.4
+initial_GREEN: 0.7
+initial_BLUE: 0.7
+color_order: RGB
+
+#   Set RGB values on boot up for each Neopixel. 
+#   Index 1 = display, Index 2 and 3 = Knob
+[delayed_gcode setdisplayneopixel]
+initial_duration: 10
+gcode:
+        SET_LED LED=fysetc_mini12864 RED=0 GREEN=0 BLUE=1 INDEX=1 TRANSMIT=0
+        SET_LED LED=fysetc_mini12864 RED=1 GREEN=0 BLUE=0 INDEX=2 TRANSMIT=0
+        SET_LED LED=fysetc_mini12864 RED=0 GREEN=1 BLUE=0 INDEX=3 
+#--------------------------------------------------------------------
+
+#####################################################################
+#   Neopixel
+#####################################################################
+
+# [neopixel caselight]
+# pin: PD3
+# chain_count: 25
+# color_order: GRB
+# initial_RED: 0.0
+# initial_GREEN: 0.0
+# initial_BLUE: 0.0
+
+#####################################################################
+#   Macros
+#####################################################################
+# Park 15mm above center of bed
+[gcode_macro PARKBED]
+gcode:
+    {% if "xyz" not in printer.toolhead.homed_axes %}
+        G28                           ; home if not already homed
+    {% endif %}
+    SAVE_GCODE_STATE NAME=PARKBED
+    G90                                ; absolute positioning
+    G0 X{printer.toolhead.axis_maximum.x/2} Y{printer.toolhead.axis_maximum.y/2} Z15 F6000                                     
+    RESTORE_GCODE_STATE NAME=PARKBED
+
+
+[gcode_macro OFF]
+gcode:
+    M84                                  ; turn steppers off
+    TURN_OFF_HEATERS                     ; turn bed / hotend off
+    M107                                 ; turn print cooling fan off
+    SET_FAN_SPEED FAN=Exhaust SPEED=0   ; turn exhaust fan off
+    SET_FAN_SPEED FAN=BedFans SPEED=0   ; bed fan off
+    STOP_LED_EFFECTS
+    #SET_PIN PIN=caselight VALUE=0       ; turn case light off
+
+[gcode_macro PARK]
+gcode:
+    STATUS_HOMING_PROBE
+    {% set th = printer.toolhead %}
+    G0 X{th.axis_maximum.x//2} Y{th.axis_maximum.y//2} Z15
+    STATUS_READY
+    
+
+[gcode_macro G32]
+gcode:
+    STATUS_LEVELING
+    SAVE_GCODE_STATE NAME=STATE_G32
+    G90
+    G28
+    QUAD_GANTRY_LEVEL
+    G28
+    PARK
+    RESTORE_GCODE_STATE NAME=STATE_G32
+    STATUS_READY
+
+
+
+[gcode_macro MIDDEN]
+gcode:
+  STATUS_CALIBRATING_Z
+  {% set th = printer.toolhead %}
+  G0 X{th.axis_maximum.x//2} Y{th.axis_maximum.y//2} Z15
+  G1 Y175 F6000
+  G1 X175 F6000 
+  STATUS_READY
+
+[delayed_gcode _CLEAR_DISPLAY]
+gcode:
+  M117
+
+[gcode_macro NOZZLE_WISSEL]
+gcode:
+  STATUS_BUSY
+  G1 Y0 F6000
+  G1 X175 F6000
+  G1 Z100
+  STATUS_READY
+
+[gcode_macro chamber_fan]
+gcode:
+    {% set s = params.S|default(0)|float %}
+    SET_TEMPERATURE_FAN_TARGET temperature_fan="chamber" target={s}
+
+
+
+
+#####################################################################
+#   print_start macro
+#####################################################################
+
+[gcode_arcs]
+  resolution: 1.0
+#   An arc will be split into segments. Each segment's length will
+#   equal the resolution in mm set above. Lower values will produce a
+#   finer arc, but also more work for your machine. Arcs smaller than
+#   the configured value will become straight lines. The default is
+#   1mm.
+
+
+[gcode_macro PRINT_START]
+gcode:
+  # This part fetches data from your slicer. Such as bed temp, extruder temp, chamber temp and size of your printer.
+  CASELIGHT_ON 
+  {% set target_bed = params.BED|int %}
+  {% set target_extruder = params.EXTRUDER|int %}
+  {% set target_chamber = params.CHAMBER|default("40")|int %}
+  {% set MATERIAL = params.MATERIAL|default('ABS')|string %}
+  {% set x_wait = printer.toolhead.axis_maximum.x|float / 2 %}
+  {% set y_wait = printer.toolhead.axis_maximum.y|float / 2 %}
+  M106 S255        # Turns on the PC-fan
+  M109 S100        # Cools down extruder temp to 100C
+  # Homes the printer, sets absolute positioning and updates the Stealthburner leds.
+  STATUS_HOMING_PROBE         # Sets SB-leds to homing-mode
+  SET_DISPLAY_TEXT MSG="Homing MOFO"
+  G28                   # Full home (XYZ)
+  G90                   # Absolut position
+  ##  Uncomment for bed mesh (1 of 2)
+  BED_MESH_CLEAR       # Clears old saved bed mesh (if any)
+ 
+  SET_DISPLAY_TEXT MSG="Cleaning nozzle"    # Displays info
+  STATUS_CLEANING
+  clean_nozzle
+  
+
+  # Checks if the bed temp is higher than 90c - if so then trigger a heatsoak.
+  {% if params.BED|int > 90 %}
+    SET_DISPLAY_TEXT MSG="Bed: {target_bed}c"           # Displays info
+    STATUS_HEATING                                      # Sets SB-leds to heating-mode
+    M106 S255                                           # Turns on the PC-fan
+
+
+    G1 X{x_wait} Y{y_wait} Z30 F9000                    # Goes to center of the bed
+    M190 S{target_bed}                                  # Sets the target temp for the bed
+    STATUS_HEATING                                      # Sets SB-leds to heating-mode
+    SET_DISPLAY_TEXT MSG="Heatsoak: {target_chamber}c"  # Displays info
+    # { action_respond_info('Chamber temperature to low, heatsoak to %.1fC ' % (target_chamber)) }
+    # { action_respond_info('Chamber temperature of %.1fC is too low, hating up to to %.1fC' % (target_chamber)) }
+    TEMPERATURE_WAIT SENSOR="temperature_sensor chamber" MINIMUM={target_chamber}   # Waits for chamber to reach desired temp
+    { action_respond_info('Chamber temperature is too low, Heatsoak') }
+   
+  # If the bed temp is not over 90c, then it skips the heatsoak and just heats up to set temp with a 5min soak
+  {% else %}
+    SET_DISPLAY_TEXT MSG="Bed heating up: {target_bed}c" # Displays info
+    STATUS_HEATING                                       # Sets SB-leds to heating-mode
+    G1 X{x_wait} Y{y_wait} Z15 F9000                     # Goes to center of the bed
+    M190 S{target_bed}                                   # Sets the target temp for the bed
+    SET_DISPLAY_TEXT MSG="Soak for 5min"                 # Displays info
+   # { action_respond_info('Heatsoak for 5 minutes. There is  no need for a high chamber temperature') }
+    G4 P0 #P300000 #P0                                           # Waits 5 min for the bedtemp to stabilize
+  {% endif %}
+ 
+  # Heating nozzle to 100 degrees. This helps with getting a correct Z-home
+  STATUS_COOLING
+  SET_DISPLAY_TEXT MSG="Hotend: 100c"          # Displays info
+  M109 S100                                    # Heats the nozzle to 100c
+
+
+  #  Uncomment for V2 (Quad gantry level AKA QGL)
+  #CASELIGHT_ON
+  SET_DISPLAY_TEXT MSG="Q.G.L."      # Displays info
+  STATUS_LEVELING                 # Sets SB-leds to leveling-mode status_leveling
+  quad_gantry_level              # Levels the buildplate via QGL
+  STATUS_HOMING_PROBE
+  G28 Z                           # Homes Z again after QGL
+
+  #  Uncomment for bed mesh (2 of 2)
+  #CASELIGHT_ON                  
+  SET_DISPLAY_TEXT MSG="Adaptive mesh"    # Displays info
+  STATUS_MESHING                     # Sets SB-leds to bed mesh-mode status_meshing 
+  bed_mesh_calibrate                 # Starts bed mesh
+  SET_DISPLAY_TEXT MSG="Cleaning nozzle"    # Displays info
+  STATUS_CLEANING
+  clean_nozzle
+  
+
+  # Heats up the nozzle up to target via data from slicer
+ # CASELIGHT_ON
+  SET_DISPLAY_TEXT MSG="Hotend: {target_extruder}c"             # Displays info
+  STATUS_HEATING                                                # Sets SB-leds to heating-mode
+  G1 X{x_wait} Y{y_wait} Z15 F9000                              # Goes to center of the bed
+  M107                                                          # Turns off partcooling fan
+  M109 S{target_extruder}                                       # Heats the nozzle to printing temp
+
+  SET_FAN_SPEED FAN=Nevermore SPEED=0.5        #Starts nevermore
+   
+
+  # Gets ready to print by doing a purge line and updating the SB-leds
+  SET_DISPLAY_TEXT MSG="Printer goes brr"          # Displays info
+  #CASELIGHT_ON
+  STATUS_PRINTING                                  # Sets SB-leds to printing-mode
+  VORON_PURGE
+  G90                                              # Absolut position
+                                              # Clears Displays info
+
+[gcode_macro PRINT_END]
+#   Use PRINT_END for the slicer ending script - please customise for your slicer of choice
+gcode:
+     STATUS_READY
+     SET_DISPLAY_TEXT MSG="I'm done MOFO"    # Displays info
+      { action_respond_info('The print is ready. ENJOY') }
+    # safe anti-stringing move coords
+    {% set th = printer.toolhead %}
+    {% set x_safe = th.position.x + 20 * (1 if th.axis_maximum.x - th.position.x > 20 else -1) %}
+    {% set y_safe = th.position.y + 20 * (1 if th.axis_maximum.y - th.position.y > 20 else -1) %}
+    {% set z_safe = [th.position.z + 2, th.axis_maximum.z]|min %}
+    
+    SAVE_GCODE_STATE NAME=STATE_PRINT_END
+    
+    M400                           ; wait for buffer to clear
+    G92 E0                         ; zero the extruder
+    G1 E-5.0 F1800                 ; retract filament
+    
+    TURN_OFF_HEATERS
+    
+    G90                                      ; absolute positioning
+    G0 X{x_safe} Y{y_safe} Z{z_safe} F20000  ; move nozzle to remove stringing
+    G0 X{th.axis_maximum.x//2} Y{th.axis_maximum.y - 2} F3600  ; park nozzle at rear
+    M107                                     ; turn off fan
+    UPDATE_DELAYED_GCODE ID=filter_off DURATION=180
+    BED_MESH_CLEAR
+    STOP_LED_EFFECTS
+    RESTORE_GCODE_STATE NAME=STATE_PRINT_END
+    M117
+
+# z_offset = -0.350 ter controle # 2.310
+
+#*# <---------------------- SAVE_CONFIG ---------------------->
+#*# DO NOT EDIT THIS BLOCK OR BELOW. The contents are auto-generated.
+#*#
+#*# [heater_bed]
+#*# control = pid
+#*# pid_kp = 39.692
+#*# pid_ki = 1.530
+#*# pid_kd = 257.504
+#*#
+#*# [extruder]
+#*#
+#*# [stepper_z]
+#*#
+#*# [bed_mesh default]
+#*# version = 1
+#*# points =
+#*# 	  -0.033750, -0.025000, -0.037500
+#*# 	  -0.030000, -0.015000, -0.020000
+#*# 	  -0.025000, -0.006250, -0.018750
+#*# x_count = 3
+#*# y_count = 3
+#*# mesh_x_pps = 2
+#*# mesh_y_pps = 2
+#*# algo = lagrange
+#*# tension = 0.2
+#*# min_x = 142.4
+#*# max_x = 205.12
+#*# min_y = 158.118
+#*# max_y = 191.13799999999998
+#*#
+#*# [probe]
+#*# z_offset = -0.275
+#*#
+#*# [input_shaper]
+#*# shaper_type_x = ei
+#*# shaper_freq_x = 54.8
+#*# shaper_type_y = mzv
+#*# shaper_freq_y = 36.6
