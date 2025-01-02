@@ -12,7 +12,7 @@
 ## Min & Max gantry corner postions    [quad_gantry_level] section
 ## PID tune                            [extruder] and [heater_bed] sections
 ## Fine tune E steps                   [extruder] section
-[include moonraker_obico_macros.cfg]
+##[include moonraker_obico_macros.cfg]
 [exclude_object]
 [include KAMP_Settings.cfg]
 [include mainsail.cfg]
@@ -21,13 +21,14 @@
 [include nozzle_scrub.cfg]
 [include timelapse.cfg]
 [include bed_mesh.cfg] 
-[include led_effect.cfg]
+#[include neopixel_caselight.cfg]
+[include led_effects.cfg]
 [include calibrate_pa.cfg]
-#[include config_backup.cfg]
+[include config_backup.cfg]
 [include nevermore.cfg]
 #[include led_progress.cfg]
 [include neopixel_rainbowstick.cfg]
-
+##[include stealthburner_leds.cfg]
 
 
 [mcu]
@@ -42,11 +43,15 @@ serial:/dev/ttyACM0
 ## Uncomment below if you're using the Raspberry uart0 to communicate with Spider
 #restart_method: command
 
+[virtual_sdcard]
+path: /home/pi/printer_data/gcodes
+on_error_gcode: CANCEL_PRINT
+
 [printer]
 kinematics: corexy
 max_velocity: 500  
 max_accel: 4000                 #Max 4000
-max_z_velocity: 20          #Max 15 for 12V TMC Drivers, can increase for 24V
+max_z_velocity: 15          #Max 15 for 12V TMC Drivers, can increase for 24V
 max_z_accel: 350
 square_corner_velocity: 5.0
 
@@ -230,8 +235,8 @@ sensor_pin: PB0 # Spider 2.2
 ##--------------------------------------------------------------------
 
 ##  Adjust Max Power so your heater doesn't warp your bed
-max_power: 1.0 ## 0.85
-min_temp: 10
+max_power: 0.75
+min_temp: 0
 max_temp: 125
 #control: pid
 #pid_kp: 58.437
@@ -276,20 +281,20 @@ max_temp: 100
 ##  In Z+ position
 [probe]
 ##  If your probe is NO instead of NC, change pin to ^!PA3
-pin: ^EBBCan: PB5
+pin:  ^EBBCan: PB5
 x_offset: 0
 y_offset: 0
-#z_offset: 0.00
-speed: 7
-samples: 3
+#z_offset: 0
+speed: 10
+samples: 5
 samples_result: median
 sample_retract_dist: 3.0
-samples_tolerance: 0.006 # 0.006 
-samples_tolerance_retries: 7
+samples_tolerance: 0.01 # 0.006 
+samples_tolerance_retries: 5
 activate_gcode:
    #G28                   # Full home (XYZ)
-    {% set PROBE_TEMP = 150 %}
-    {% set MAX_TEMP = PROBE_TEMP + 15 %}
+    {% set PROBE_TEMP = 100 %}
+    {% set MAX_TEMP = PROBE_TEMP + 10 %}
     {% set ACTUAL_TEMP = printer.extruder.temperature %}
     {% set TARGET_TEMP = printer.extruder.target %}
 
@@ -312,7 +317,7 @@ activate_gcode:
 ##  Controller fan - FAN2 Connector
 [heater_fan controller_fan]
 pin: PB2
-kick_start_time: 0.5
+#kick_start_time: 0.5
 heater: heater_bed
 heater_temp:50
 fan_speed: 0.5
@@ -355,7 +360,7 @@ timeout: 72000
 [safe_z_home]
 home_xy_position:175,175
 speed:200
-z_hop:7
+z_hop:15
 
 
 [quad_gantry_level]
@@ -371,7 +376,7 @@ points:
 speed:350
 horizontal_move_z: 5
 retries: 7
-retry_tolerance: 0.0075
+retry_tolerance: 0.01 #0.0075
 max_adjust: 10
 
 #####################################################################
@@ -396,7 +401,7 @@ spi_software_sclk_pin: PA5
 
 #   To control Neopixel RGB in mini12864 display
 [neopixel fysetc_mini12864]
- pin: PC12
+pin: PC12
 chain_count: 3
 initial_RED: 0.4
 initial_GREEN: 0.7
@@ -416,161 +421,19 @@ gcode:
 #####################################################################
 #   Neopixel
 #####################################################################
-#[neopixel caselight]
-#pin: PD3
-#chain_count: 25
-#color_order: GRB
-#initial_RED: 0.4
-#initial_GREEN: 0.4
-#initial_BLUE: 0.4
 
-#[neopixel sb_leds]
-#  pin: EBBCan:PD3
-#   The pin connected to the neopixel. This parameter must be provided.
- # chain_count: 10
-#   The number of Neopixel chips that are "daisy chained" to the
-#   provided pin. The default is 1 (which indicates only a single
-#   Neopixel is connected to the pin).
-# color_order: GRB, GRB, GRB, GRB, GRB, GRB, GRB, GRB, GRBW,  GRBW
-#   Set the pixel order required by the LED hardware. Options are GRB,
-#   RGB, GRBW, or RGBW. The default is GRB.
-#initial_RED: 0.4
-#initial_GREEN: 0.4
-#initial_BLUE: 0.4
-#initial_WHITE: 0.4
-#   Sets the initial LED color of the Neopixel. Each value should be
-#   between 0.0 and 1.0. The WHITE option is only available on RGBW
-#   LEDs. The default for each color is 0.#
+# [neopixel caselight]
+# pin: PD3
+# chain_count: 25
+# color_order: GRB
+# initial_RED: 0.0
+# initial_GREEN: 0.0
+# initial_BLUE: 0.0
 
 #####################################################################
 #   Macros
 #####################################################################
-[gcode_macro TEST_SPEED]
-# Home, get position, throw around toolhead, home again.
-# If MCU stepper positions (first line in GET_POSITION) are greater than a full step different (your number of microsteps), then skipping occured.
-# We only measure to a full step to accomodate for endstop variance.
-# Example: TEST_SPEED SPEED=300 ACCEL=5000 ITERATIONS=10
-
-description: Test for max speed and acceleration parameters for the printer. Procedure: Home -> ReadPositionFromMCU -> MovesToolhead@Vel&Accel -> Home -> ReadPositionfromMCU
-
-gcode:
-    # Speed
-    {% set speed  = params.SPEED|default(printer.configfile.settings.printer.max_velocity)|int %}
-    # Iterations
-    {% set iterations = params.ITERATIONS|default(5)|int %}
-    # Acceleration
-    {% set accel  = params.ACCEL|default(printer.configfile.settings.printer.max_accel)|int %}
-    # Minimum Cruise Ratio
-    {% set min_cruise_ratio = params.MIN_CRUISE_RATIO|default(0.5)|float %}
-    # Bounding inset for large pattern (helps prevent slamming the toolhead into the sides after small skips, and helps to account for machines with imperfectly set dimensions)
-    {% set bound = params.BOUND|default(20)|int %}
-    # Size for small pattern box
-    {% set smallpatternsize = SMALLPATTERNSIZE|default(20)|int %}
-    
-    # Large pattern
-        # Max positions, inset by BOUND
-        {% set x_min = printer.toolhead.axis_minimum.x + bound %}
-        {% set x_max = printer.toolhead.axis_maximum.x - bound %}
-        {% set y_min = printer.toolhead.axis_minimum.y + bound %}
-        {% set y_max = printer.toolhead.axis_maximum.y - bound %}
-    
-    # Small pattern at center
-        # Find X/Y center point
-        {% set x_center = (printer.toolhead.axis_minimum.x|float + printer.toolhead.axis_maximum.x|float ) / 2 %}
-        {% set y_center = (printer.toolhead.axis_minimum.y|float + printer.toolhead.axis_maximum.y|float ) / 2 %}
-        
-        # Set small pattern box around center point
-        {% set x_center_min = x_center - (smallpatternsize/2) %}
-        {% set x_center_max = x_center + (smallpatternsize/2) %}
-        {% set y_center_min = y_center - (smallpatternsize/2) %}
-        {% set y_center_max = y_center + (smallpatternsize/2) %}
-
-    # Save current gcode state (absolute/relative, etc)
-    SAVE_GCODE_STATE NAME=TEST_SPEED
-    
-    # Output parameters to g-code terminal
-    { action_respond_info("TEST_SPEED: starting %d iterations at speed %d, accel %d" % (iterations, speed, accel)) }
-    
-    # Home and get position for comparison later:
-        M400 # Finish moves - https://github.com/AndrewEllis93/Print-Tuning-Guide/issues/66
-        G28
-        # QGL if not already QGLd (only if QGL section exists in config)
-        {% if printer.configfile.settings.quad_gantry_level %}
-            {% if printer.quad_gantry_level.applied == False %}
-                QUAD_GANTRY_LEVEL
-                G28 Z
-            {% endif %}
-        {% endif %} 
-        # Move 50mm away from max position and home again (to help with hall effect endstop accuracy - https://github.com/AndrewEllis93/Print-Tuning-Guide/issues/24)
-        G90
-        G1 X{printer.toolhead.axis_maximum.x-50} Y{printer.toolhead.axis_maximum.y-50} F{30*60}
-        M400 # Finish moves - https://github.com/AndrewEllis93/Print-Tuning-Guide/issues/66
-        G28 X Y
-        G0 X{printer.toolhead.axis_maximum.x-1} Y{printer.toolhead.axis_maximum.y-1} F{30*60}
-        G4 P1000 
-        GET_POSITION
-
-    # Go to starting position
-    G0 X{x_min} Y{y_min} Z{bound + 10} F{speed*60}
-
-    # Set new limits
-    {% if printer.configfile.settings.printer.minimum_cruise_ratio is defined %}
-        SET_VELOCITY_LIMIT VELOCITY={speed} ACCEL={accel} MINIMUM_CRUISE_RATIO={min_cruise_ratio}
-    {% else %}
-        SET_VELOCITY_LIMIT VELOCITY={speed} ACCEL={accel} ACCEL_TO_DECEL={accel / 2}
-    {% endif %}
-
-    {% for i in range(iterations) %}
-        # Large pattern diagonals
-        G0 X{x_min} Y{y_min} F{speed*60}
-        G0 X{x_max} Y{y_max} F{speed*60}
-        G0 X{x_min} Y{y_min} F{speed*60}
-        G0 X{x_max} Y{y_min} F{speed*60}
-        G0 X{x_min} Y{y_max} F{speed*60}
-        G0 X{x_max} Y{y_min} F{speed*60}
-        
-        # Large pattern box
-        G0 X{x_min} Y{y_min} F{speed*60}
-        G0 X{x_min} Y{y_max} F{speed*60}
-        G0 X{x_max} Y{y_max} F{speed*60}
-        G0 X{x_max} Y{y_min} F{speed*60}
-    
-        # Small pattern diagonals
-        G0 X{x_center_min} Y{y_center_min} F{speed*60}
-        G0 X{x_center_max} Y{y_center_max} F{speed*60}
-        G0 X{x_center_min} Y{y_center_min} F{speed*60}
-        G0 X{x_center_max} Y{y_center_min} F{speed*60}
-        G0 X{x_center_min} Y{y_center_max} F{speed*60}
-        G0 X{x_center_max} Y{y_center_min} F{speed*60}
-        
-        # Small pattern box
-        G0 X{x_center_min} Y{y_center_min} F{speed*60}
-        G0 X{x_center_min} Y{y_center_max} F{speed*60}
-        G0 X{x_center_max} Y{y_center_max} F{speed*60}
-        G0 X{x_center_max} Y{y_center_min} F{speed*60}
-    {% endfor %}
-
-    # Restore max speed/accel/accel_to_decel to their configured values
-    {% if printer.configfile.settings.printer.minimum_cruise_ratio is defined %}
-        SET_VELOCITY_LIMIT VELOCITY={printer.configfile.settings.printer.max_velocity} ACCEL={printer.configfile.settings.printer.max_accel} MINIMUM_CRUISE_RATIO={printer.configfile.settings.printer.minimum_cruise_ratio} 
-    {% else %}
-        SET_VELOCITY_LIMIT VELOCITY={printer.configfile.settings.printer.max_velocity} ACCEL={printer.configfile.settings.printer.max_accel} ACCEL_TO_DECEL={printer.configfile.settings.printer.max_accel_to_decel}
-    {% endif %}
-
-    # Re-home and get position again for comparison:
-        M400 # Finish moves - https://github.com/AndrewEllis93/Print-Tuning-Guide/issues/66
-        G28 # This is a full G28 to fix an issue with CoreXZ - https://github.com/AndrewEllis93/Print-Tuning-Guide/issues/12
-        # Go to XY home positions (in case your homing override leaves it elsewhere)
-        G90
-        G0 X{printer.toolhead.axis_maximum.x-1} Y{printer.toolhead.axis_maximum.y-1} F{30*60}
-        G4 P1000 
-        GET_POSITION
-
-    # Restore previous gcode state (absolute/relative, etc)
-    RESTORE_GCODE_STATE NAME=TEST_SPEED
-    
-
-
+# Park 15mm above center of bed
 [gcode_macro PARKBED]
 gcode:
     {% if "xyz" not in printer.toolhead.homed_axes %}
@@ -589,20 +452,20 @@ gcode:
     M107                                 ; turn print cooling fan off
     SET_FAN_SPEED FAN=Exhaust SPEED=0   ; turn exhaust fan off
     SET_FAN_SPEED FAN=BedFans SPEED=0   ; bed fan off
-   # STOP_LED_EFFECTS
+    STOP_LED_EFFECTS
     #SET_PIN PIN=caselight VALUE=0       ; turn case light off
 
 [gcode_macro PARK]
 gcode:
-   # STATUS_HOMING_PROBE
+    STATUS_HOMING_PROBE
     {% set th = printer.toolhead %}
     G0 X{th.axis_maximum.x//2} Y{th.axis_maximum.y//2} Z15
-    #STATUS_READY
+    STATUS_READY
     
 
 [gcode_macro G32]
 gcode:
-   #STATUS_LEVELING
+    STATUS_LEVELING
     SAVE_GCODE_STATE NAME=STATE_G32
     G90
     G28
@@ -610,36 +473,36 @@ gcode:
     G28
     PARK
     RESTORE_GCODE_STATE NAME=STATE_G32
-   #STATUS_READY
+    STATUS_READY
 
 
 
 [gcode_macro MIDDEN]
 gcode:
- # STATUS_CALIBRATING_Z
+  STATUS_CALIBRATING_Z
   {% set th = printer.toolhead %}
   G0 X{th.axis_maximum.x//2} Y{th.axis_maximum.y//2} Z15
   G1 Y175 F6000
   G1 X175 F6000 
- # STATUS_READY
+  STATUS_READY
 
 [delayed_gcode _CLEAR_DISPLAY]
 gcode:
   M117
 
-[gcode_macro NOZZLE_CHANGE]
+[gcode_macro NOZZLE_WISSEL]
 gcode:
- # STATUS_BUSY
-  G1 Z100
+  STATUS_BUSY
   G1 Y0 F6000
   G1 X175 F6000
-  
- # STATUS_READY
+  G1 Z100
+  STATUS_READY
 
 [gcode_macro chamber_fan]
 gcode:
     {% set s = params.S|default(0)|float %}
-    SET_TEMPERATURE_FAN_TARGET temperature_fan="chamber_fan" target={s}
+    SET_TEMPERATURE_FAN_TARGET temperature_fan="chamber" target={s}
+
 
 
 
@@ -666,13 +529,8 @@ gcode:
   {% set MATERIAL = params.MATERIAL|default('ABS')|string %}
   {% set x_wait = printer.toolhead.axis_maximum.x|float / 2 %}
   {% set y_wait = printer.toolhead.axis_maximum.y|float / 2 %}
-
- # SET_DISPLAY_TEXT MSG="Cleaning nozzle"    # Displays info
- # STATUS_CLEANING
- #  clean_nozzle
-  
   M106 S255        # Turns on the PC-fan
-  #M109 S100        # Cools down extruder temp to 100C
+  M109 S100        # Cools down extruder temp to 100C
   # Homes the printer, sets absolute positioning and updates the Stealthburner leds.
   STATUS_HOMING_PROBE         # Sets SB-leds to homing-mode
   SET_DISPLAY_TEXT MSG="Homing MOFO"
@@ -681,7 +539,9 @@ gcode:
   ##  Uncomment for bed mesh (1 of 2)
   BED_MESH_CLEAR       # Clears old saved bed mesh (if any)
  
-
+  SET_DISPLAY_TEXT MSG="Cleaning nozzle"    # Displays info
+  STATUS_CLEANING
+  clean_nozzle
   
 
   # Checks if the bed temp is higher than 90c - if so then trigger a heatsoak.
@@ -698,7 +558,7 @@ gcode:
     # { action_respond_info('Chamber temperature to low, heatsoak to %.1fC ' % (target_chamber)) }
     # { action_respond_info('Chamber temperature of %.1fC is too low, hating up to to %.1fC' % (target_chamber)) }
     TEMPERATURE_WAIT SENSOR="temperature_sensor chamber" MINIMUM={target_chamber}   # Waits for chamber to reach desired temp
-   ## { action_respond_info('Chamber temperature is too low, Heatsoak') }
+    { action_respond_info('Chamber temperature is too low, Heatsoak') }
    
   # If the bed temp is not over 90c, then it skips the heatsoak and just heats up to set temp with a 5min soak
   {% else %}
@@ -707,17 +567,18 @@ gcode:
     G1 X{x_wait} Y{y_wait} Z15 F9000                     # Goes to center of the bed
     M190 S{target_bed}                                   # Sets the target temp for the bed
     SET_DISPLAY_TEXT MSG="Soak for 5min"                 # Displays info
-    G4 P300000 #P0                                           # Waits 5 min for the bedtemp to stabilize
+   # { action_respond_info('Heatsoak for 5 minutes. There is  no need for a high chamber temperature') }
+    G4 P0 #P300000 #P0                                           # Waits 5 min for the bedtemp to stabilize
   {% endif %}
  
-  # Heating nozzle to 150 degrees. This helps with getting a correct Z-home
+  # Heating nozzle to 100 degrees. This helps with getting a correct Z-home
   STATUS_COOLING
-  SET_DISPLAY_TEXT MSG="Hotend: 150c"          # Displays info
-  M109 S150                                    # Heats the nozzle to 100c
+  SET_DISPLAY_TEXT MSG="Hotend: 100c"          # Displays info
+  M109 S100                                    # Heats the nozzle to 100c
 
 
   #  Uncomment for V2 (Quad gantry level AKA QGL)
-  CASELIGHT_ON
+  #CASELIGHT_ON
   SET_DISPLAY_TEXT MSG="Q.G.L."      # Displays info
   STATUS_LEVELING                 # Sets SB-leds to leveling-mode status_leveling
   quad_gantry_level              # Levels the buildplate via QGL
@@ -725,43 +586,40 @@ gcode:
   G28 Z                           # Homes Z again after QGL
 
   #  Uncomment for bed mesh (2 of 2)
-  CASELIGHT_ON                  
+  #CASELIGHT_ON                  
   SET_DISPLAY_TEXT MSG="Adaptive mesh"    # Displays info
   STATUS_MESHING                     # Sets SB-leds to bed mesh-mode status_meshing 
   bed_mesh_calibrate                 # Starts bed mesh
-
+  SET_DISPLAY_TEXT MSG="Cleaning nozzle"    # Displays info
+  STATUS_CLEANING
+  clean_nozzle
   
 
   # Heats up the nozzle up to target via data from slicer
-  CASELIGHT_ON
+ # CASELIGHT_ON
   SET_DISPLAY_TEXT MSG="Hotend: {target_extruder}c"             # Displays info
   STATUS_HEATING                                                # Sets SB-leds to heating-mode
   G1 X{x_wait} Y{y_wait} Z15 F9000                              # Goes to center of the bed
   M107                                                          # Turns off partcooling fan
   M109 S{target_extruder}                                       # Heats the nozzle to printing temp
-  
-  SET_DISPLAY_TEXT MSG="Cleaning nozzle"    # Displays info
-  STATUS_CLEANING
-  clean_nozzle
 
   SET_FAN_SPEED FAN=Nevermore SPEED=0.5        #Starts nevermore
    
 
   # Gets ready to print by doing a purge line and updating the SB-leds
-  SET_DISPLAY_TEXT MSG="I go prtprtprt"          # Displays info
-  CASELIGHT_ON
+  SET_DISPLAY_TEXT MSG="Printer goes brr"          # Displays info
+  #CASELIGHT_ON
   STATUS_PRINTING                                  # Sets SB-leds to printing-mode
   VORON_PURGE
   G90                                              # Absolut position
                                               # Clears Displays info
 
-
 [gcode_macro PRINT_END]
 #   Use PRINT_END for the slicer ending script - please customise for your slicer of choice
 gcode:
-   #  STATUS_READY
+     STATUS_READY
      SET_DISPLAY_TEXT MSG="I'm done MOFO"    # Displays info
-      { action_respond_info('The print is ready. ENJOY Junk') }
+      { action_respond_info('The print is ready. ENJOY') }
     # safe anti-stringing move coords
     {% set th = printer.toolhead %}
     {% set x_safe = th.position.x + 20 * (1 if th.axis_maximum.x - th.position.x > 20 else -1) %}
@@ -782,7 +640,7 @@ gcode:
     M107                                     ; turn off fan
     UPDATE_DELAYED_GCODE ID=filter_off DURATION=180
     BED_MESH_CLEAR
-    #STOP_LED_EFFECTS
+    STOP_LED_EFFECTS
     RESTORE_GCODE_STATE NAME=STATE_PRINT_END
     M117
 
@@ -804,25 +662,25 @@ gcode:
 #*# [bed_mesh default]
 #*# version = 1
 #*# points =
-#*# 	  -0.027500, -0.036250, 0.003750
-#*# 	  -0.001250, -0.005000, 0.003750
-#*# 	  0.003750, -0.002500, 0.022500
+#*# 	  -0.033750, -0.025000, -0.037500
+#*# 	  -0.030000, -0.015000, -0.020000
+#*# 	  -0.025000, -0.006250, -0.018750
 #*# x_count = 3
 #*# y_count = 3
 #*# mesh_x_pps = 2
 #*# mesh_y_pps = 2
 #*# algo = lagrange
 #*# tension = 0.2
-#*# min_x = 160.553
-#*# max_x = 191.733
-#*# min_y = 162.989
-#*# max_y = 188.169
+#*# min_x = 142.4
+#*# max_x = 205.12
+#*# min_y = 158.118
+#*# max_y = 191.13799999999998
 #*#
 #*# [probe]
-#*# z_offset = -0.350
+#*# z_offset = -0.275
 #*#
 #*# [input_shaper]
-#*# shaper_type_x = 3hump_ei
-#*# shaper_freq_x = 87.2
+#*# shaper_type_x = ei
+#*# shaper_freq_x = 54.8
 #*# shaper_type_y = mzv
-#*# shaper_freq_y = 36.4
+#*# shaper_freq_y = 36.6
