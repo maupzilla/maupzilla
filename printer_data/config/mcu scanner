@@ -1,4 +1,4 @@
-[mcu scanner]
+[mcu_scanner]
 canbus_uuid:             ###0ca8d67388c2 
 #serial: /dev/serial/by-id/usb-cartographer_cartographer_
 #    adjust to suit your scanner, if using usb change to serial
