@@ -1,11 +1,11 @@
-[mcu_scanner]
-canbus_uuid:             ###0ca8d67388c2 
-#serial: /dev/serial/by-id/usb-cartographer_cartographer_
-#    adjust to suit your scanner, if using usb change to serial
+ [mcu_scanner]
+  canbus_uuid:             ###0ca8d67388c2 
+  #serial: /dev/serial/by-id/usb-cartographer_cartographer_
+  #    adjust to suit your scanner, if using usb change to serial
 
-[scanner]
-mcu: scanner            
-#   Offsets are measured from the centre of your coil, to the tip of your nozzle 
+ [scanner]
+ mcu: scanner            
+ #   Offsets are measured from the centre of your coil, to the tip of your nozzle 
 #   on a level axis. It is vital that this is accurate. 
 x_offset: 0                          
 #    adjust for your cartographers offset from nozzle to middle of coil
